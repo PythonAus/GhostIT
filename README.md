@@ -140,5 +140,5 @@ GhostIT is a secure messaging application that uses encryption to ensure the pri
   - All messages, files, and keys are deleted from the database once they are decrypted and viewed to ensure that data is not retained unnecessarily.
 - **Usernames can be changed when sending messages**
 # GhostIT
-# GhostIT
-# GhostIT
+
+live site at https://ghostit.app
