@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ghost Messenger: Secure Encryption Messaging Service</title>
+    <meta name="description" content="Ghost Messenger offers end-to-end RSA encrypted messaging for secure communication. Stay private with our no-log, secure service. Learn more.">
+    <link rel="icon" type="image/png" href="{{ url_for('static', filename='images/ghost.png') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles/main.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles/notification.css') }}">
+</head>
+<body>
+    <img src="{{ url_for('static', filename='images/ghost.png') }}" class="logo" alt="Ghost Messenger Logo">
+    <h1>Ghost Messenger</h1>
+
+    <h2>Send a Message</h2>
+    <form id="message-form" action="/" method="post" enctype="multipart/form-data">
+        {{ message_form.hidden_tag() }}
+        <div>
+            {{ message_form.sender.label }} {{ message_form.sender(class_="form-control", placeholder="Your Username") }}
+        </div>
+        <div>
+            {{ message_form.receiver.label }} {{ message_form.receiver(class_="form-control", placeholder="Receiver's Username") }}
+        </div>
+        <div>
+            {{ message_form.message.label }} {{ message_form.message(class_="form-control", maxlength="130") }}
+            <small id="char-count">130 characters remaining</small>
+        </div>
+        <div>
+            <label for="file">File</label>
+            <input type="file" name="file" id="file" class="form-control">
+            <span id="file-name">No file chosen</span>
+        </div>
+        <div>
+            {{ message_form.private_key_password.label }} {{ message_form.private_key_password(class_="form-control", id="private-key-password") }}
+        </div>
+        <div>
+            {{ message_form.submit(class_="btn btn-primary") }}
+        </div>
+        <div id="loading-container" style="display:none;">
+            <div id="loading-spinner"></div>
+            <div id="progress-bar">
+                <div id="progress"></div>
+            </div>
+        </div>
+    </form>
+
+    <h2>Decrypt Messages</h2>
+    <form action="/" method="post">
+        {{ decrypt_form.hidden_tag() }}
+        <div>
+            {{ decrypt_form.receiver.label }} {{ decrypt_form.receiver(class_="form-control", placeholder="Your Username") }}
+        </div>
+        <div>
+            {{ decrypt_form.private_key_password.label }} {{ decrypt_form.private_key_password(class_="form-control", id="decrypt-password") }}
+        </div>
+        <div>
+            {{ decrypt_form.submit(class_="btn btn-primary") }}
+        </div>
+    </form>
+
+    <section id="decrypted-messages">
+        {% if decrypted_messages %}
+            <h3>Decrypted Messages</h3>
+            {% for msg in decrypted_messages %}
+                <div class="message-content">
+                    <p><strong>From {{ msg.sender_username }} to {{ msg.receiver_username }}:</strong></p>
+                    {% if msg.message %}
+                        <p>{{ msg.message }}</p>
+                    {% endif %}
+                    {% if msg.file_filename %}
+                        <p><strong>File:</strong></p>
+                        <a href="{{ url_for('download_file', filename=msg.file_filename) }}" class="download-link">Download File</a>
+                    {% endif %}
+                </div>
+            {% endfor %}
+        {% else %}
+            <p>No decrypted messages to display.</p>
+        {% endif %}
+    </section>
+
+    <script nonce="{{ g.nonce }}">
+        document.addEventListener("DOMContentLoaded", function() {
+            // Scroll to decrypted messages if they exist
+            {% if decrypted_messages %}
+                document.getElementById('decrypted-messages').scrollIntoView();
+            {% endif %}
+
+            // Show the notification dropdown
+            function showNotification(message, isError = false) {
+                var notification = document.createElement('div');
+                notification.className = 'notification-dropdown' + (isError ? ' error' : '');
+                notification.textContent = message;
+                document.body.appendChild(notification);
+
+                // Display the notification
+                notification.style.display = 'block';
+
+                // Hide the notification after 5 seconds
+                setTimeout(function() {
+                    notification.style.display = 'none';
+                    document.body.removeChild(notification);
+                }, 5000);
+            }
+
+            // Look for flash messages inserted by Flask and show them as notifications
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        var isError = "{{ category }}" === "error"; // Determine if the message is an error based on its category
+                        showNotification("{{ message }}", isError);
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+
+            // Update character count for the message input
+            const messageInput = document.querySelector('[name="message"]');
+            const charCount = document.getElementById('char-count');
+            messageInput.addEventListener('input', function() {
+                const remaining = 130 - messageInput.value.length;
+                charCount.textContent = `${remaining} characters remaining`;
+            });
+
+            // Handle file input
+            const fileButton = document.getElementById('file-button');
+            const fileInput = document.getElementById('file');
+            const fileNameDisplay = document.getElementById('file-name');
+            const loadingSpinner = document.getElementById('loading-spinner');
+
+            fileButton.addEventListener('click', function() {
+                fileInput.click();
+            });
+
+            fileInput.addEventListener('change', function(event) {
+                const fileName = event.target.files[0] ? event.target.files[0].name : 'No file chosen';
+                fileNameDisplay.textContent = fileName;
+                loadingSpinner.style.display = 'inline-block';
+            });
+
+            // Password validation
+            function validatePassword(password) {
+                const minLength = 8;
+                const containsNumber = /\d/;
+                const containsUppercase = /[A-Z]/;
+                const noSpaces = /^\S+$/;
+
+                return password.length >= minLength &&
+                       containsNumber.test(password) &&
+                       containsUppercase.test(password) &&
+                       noSpaces.test(password);
+            }
+
+            function showPasswordError(message) {
+                alert(message);
+            }
+
+            // Show loading spinner and progress bar during form submission
+            const messageForm = document.getElementById('message-form');
+            const loadingContainer = document.getElementById('loading-container');
+            const progressBar = document.getElementById('progress');
+
+            messageForm.addEventListener('submit', function(e) {
+                e.preventDefault();
+                const password = document.getElementById('private-key-password').value;
+                if (!validatePassword(password)) {
+                    showPasswordError("Password must be at least 8 characters long, contain one number, one uppercase letter, and no spaces.");
+                    return;
+                }
+                loadingContainer.style.display = 'block';
+
+                let progress = 0;
+                const interval = setInterval(function() {
+                    if (progress < 100) {
+                        progress += 1;
+                        progressBar.style.width = progress + '%';
+                    } else {
+                        clearInterval(interval);
+                        messageForm.submit();
+                    }
+                }, 30);
+            });
+
+            const decryptForm = document.querySelector('[action="/decrypt"]');
+            decryptForm.addEventListener('submit', function(e) {
+                e.preventDefault();
+                const password = document.getElementById('decrypt-password').value;
+                if (!validatePassword(password)) {
+                    showPasswordError("Password must be at least 8 characters long, contain one number, one uppercase letter, and no spaces.");
+                    return;
+                }
+                decryptForm.submit();
+            });
+        });
+    </script>
+</body>
+</html>
