@@ -1,6 +1,6 @@
-### Ghost Messenger v3
+### GhostIT
 
-Ghost Messenger v3 is a secure messaging application that uses encryption to ensure the privacy and security of messages and files. The application employs both asymmetric and symmetric encryption to protect data during transmission and storage.
+GhostIT is a secure messaging application that uses encryption to ensure the privacy and security of messages and files. The application employs both asymmetric and symmetric encryption to protect data during transmission and storage.
 
 ---
 
@@ -26,14 +26,14 @@ Ghost Messenger v3 is a secure messaging application that uses encryption to ens
 
 1. **Clone the repository**
 
-   ```sh
+   ```
    git clone https://github.com/PythonAus/ghost-messenger-v3.git
    cd ghost-messenger-v3
    ```
 
 2. **Create a virtual environment and activate it**
 
-   ```sh
+   ```
    python -m venv venv
    source venv/bin/activate  # On Windows use `venv\Scripts\activate`
    ```
